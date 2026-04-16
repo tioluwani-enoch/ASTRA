@@ -1,4 +1,4 @@
 from .manager import MemoryManager
-from .models import Task, Note, Preferences, Priority, TaskStatus
+from .models import UserProfile, Task, Note, Preferences, Priority, TaskStatus
 
-__all__ = ["MemoryManager", "Task", "Note", "Preferences", "Priority", "TaskStatus"]
+__all__ = ["MemoryManager", "UserProfile", "Task", "Note", "Preferences", "Priority", "TaskStatus"]

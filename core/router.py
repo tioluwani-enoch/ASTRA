@@ -1,27 +1,37 @@
 from __future__ import annotations
 
-from enum import Enum
+from core.intent import IntentResult, IntentType
+from core.context import build_context
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
-class Intent(str, Enum):
-    PLAN = "plan"
-    TASK = "task"
-    REFLECT = "reflect"
-    NOTE = "note"
-    UNKNOWN = "unknown"
+class Router:
+    """
+    Translates raw user input into a structured IntentResult.
 
+    The LLM is forced to call the extract_intent tool (tool_choice enforced),
+    so the output is always a validated schema — never free text.
+    This layer has no fallback logic and no keyword guessing.
+    """
 
-_KEYWORDS: dict[Intent, list[str]] = {
-    Intent.PLAN: ["plan", "schedule", "day", "agenda", "organize my day"],
-    Intent.TASK: ["task", "add task", "remove task", "list tasks", "complete task", "finish", "todo"],
-    Intent.REFLECT: ["reflect", "reflection", "review", "end of day", "how did i do"],
-    Intent.NOTE: ["note", "remember", "jot", "write down"],
-}
+    def __init__(self, llm, memory):
+        self.llm = llm
+        self.memory = memory
 
+    def parse(self, user_input: str) -> IntentResult:
+        context = build_context(self.memory)
+        raw = self.llm.extract_intent(user_input, context)
 
-def route(user_input: str) -> Intent:
-    lower = user_input.lower()
-    for intent, keywords in _KEYWORDS.items():
-        if any(kw in lower for kw in keywords):
-            return intent
-    return Intent.UNKNOWN
+        try:
+            result = IntentResult.model_validate(raw)
+        except Exception as exc:
+            logger.warning(f"[ROUTER] Intent validation failed: {exc}. Falling back to general_chat.")
+            result = IntentResult(
+                intent=IntentType.GENERAL_CHAT,
+                parameters={"message": user_input},
+            )
+
+        logger.debug(f"[ROUTER] {result}")
+        return result

@@ -3,12 +3,13 @@ from rich import print as rprint
 from rich.console import Console
 
 from interface.cli.commands import app
+from interface.cli.renderer import render
 
 console = Console()
 
 
 def run_interactive(engine) -> None:
-    """REPL mode: read input, handle it, print response."""
+    """REPL mode: read input, handle it, render structured response."""
     rprint("[bold cyan]Astra[/bold cyan] — type a command or question. [dim]Ctrl+C to exit.[/dim]\n")
     while True:
         try:
@@ -25,5 +26,5 @@ def run_interactive(engine) -> None:
 
         with console.status("[dim]Thinking...[/dim]"):
             response = engine.handle(user_input)
-        rprint(response)
+        render(response)
         rprint()

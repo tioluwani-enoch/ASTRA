@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Astra</title>
+  <!-- Markdown parser -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0c0c0c;
+      --bg-alt:    #111111;
+      --border:    #1e1e1e;
+      --dim:       #3f3f3f;
+      --muted:     #6b6b6b;
+      --text:      #d4d4d4;
+      --user:      #e4e4e7;
+      --astra:     #22d3ee;
+      --green:     #4ade80;
+      --yellow:    #fbbf24;
+      --red:       #f87171;
+      --purple:    #a78bfa;
+      --mono:      'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    }
+
+    html, body {
+      height: 100%; background: var(--bg);
+      color: var(--text); font-family: var(--mono);
+      font-size: 13px; line-height: 1.6;
+    }
+
+    body {
+      display: flex; flex-direction: column;
+      max-width: 860px; margin: 0 auto;
+    }
+
+    /* ── Title bar ── */
+    #titlebar {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      user-select: none;
+    }
+    #titlebar .dots { display: flex; gap: 6px; }
+    #titlebar .dot  { width: 12px; height: 12px; border-radius: 50%; }
+    #titlebar .dot.red    { background: #ff5f57; }
+    #titlebar .dot.yellow { background: #febc2e; }
+    #titlebar .dot.green  { background: #28c840; }
+    #titlebar .title {
+      flex: 1; text-align: center;
+      color: var(--muted); font-size: 12px; letter-spacing: .08em;
+    }
+
+    /* ── Output pane ── */
+    #output {
+      flex: 1; overflow-y: auto;
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 0;
+    }
+
+    /* ── Lines ── */
+    .line { display: flex; align-items: flex-start; gap: 0; padding: 1px 0; }
+
+    .prefix {
+      flex-shrink: 0; width: 110px; min-width: 110px;
+      color: var(--muted); font-size: 11px;
+      padding-top: 1px; padding-right: 8px;
+      text-align: right; white-space: nowrap;
+    }
+    .prefix.user-prefix  { color: var(--purple); }
+    .prefix.astra-prefix { color: var(--astra); }
+    .prefix.err-prefix   { color: var(--red); }
+    .prefix.warn-prefix  { color: var(--yellow); }
+    .prefix.ok-prefix    { color: var(--green); }
+
+    .content { flex: 1; min-width: 0; padding-left: 4px; }
+
+    /* User message text */
+    .user-text { color: var(--user); }
+
+    /* Astra message — markdown rendered here */
+    .astra-text { color: var(--text); }
+    .astra-text p   { margin: 0; }
+    .astra-text p + p { margin-top: 0.4em; }
+    .astra-text strong { color: var(--user); font-weight: 600; }
+    .astra-text em     { color: var(--astra); font-style: italic; }
+    .astra-text code {
+      background: #1a1a1a; color: var(--green);
+      padding: 1px 5px; border-radius: 3px;
+      font-family: var(--mono); font-size: 12px;
+    }
+    .astra-text pre {
+      background: #111; border: 1px solid var(--border);
+      border-radius: 4px; padding: 10px 12px;
+      overflow-x: auto; margin: 6px 0;
+    }
+    .astra-text pre code { background: none; padding: 0; }
+    .astra-text h1, .astra-text h2, .astra-text h3 {
+      color: var(--astra); margin: 6px 0 2px;
+      font-size: 13px; font-weight: 600; letter-spacing: .04em;
+    }
+    .astra-text ul, .astra-text ol { padding-left: 1.2em; margin: 4px 0; }
+    .astra-text li { margin: 1px 0; }
+    .astra-text a  { color: var(--purple); text-decoration: underline; }
+    .astra-text blockquote {
+      border-left: 2px solid var(--dim);
+      padding-left: 10px; color: var(--muted); margin: 4px 0;
+    }
+    .astra-text hr {
+      border: none; border-top: 1px solid var(--border); margin: 8px 0;
+    }
+
+    /* Spacer between exchanges */
+    .gap { height: 8px; }
+
+    /* ── Status line ── */
+    .status-line { display: flex; align-items: center; gap: 6px; }
+    .status-badge {
+      font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      padding: 1px 6px; border-radius: 2px; text-transform: uppercase;
+    }
+    .badge-ok   { background: #14532d; color: var(--green); }
+    .badge-err  { background: #450a0a; color: var(--red); }
+    .badge-warn { background: #451a03; color: var(--yellow); }
+    .badge-info { background: #0c2a3a; color: var(--astra); }
+
+    /* ── Task table ── */
+    .task-table-wrap { margin: 4px 0; }
+    .task-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 12px; color: var(--text);
+    }
+    .task-table th {
+      text-align: left; padding: 4px 10px;
+      color: var(--muted); border-bottom: 1px solid var(--dim);
+      font-weight: 500; letter-spacing: .05em; font-size: 11px;
+      text-transform: uppercase;
+    }
+    .task-table td { padding: 4px 10px; }
+    .task-table tbody tr:hover td { background: #141414; }
+
+    .chip {
+      display: inline-block; padding: 0 6px; border-radius: 2px;
+      font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    }
+    .chip.high        { background: #450a0a; color: #f87171; }
+    .chip.medium      { background: #451a03; color: #fbbf24; }
+    .chip.low         { background: #052e16; color: #4ade80; }
+    .chip.todo        { background: #1e1b4b; color: #a78bfa; }
+    .chip.in_progress { background: #0c2a3a; color: #22d3ee; }
+    .chip.done        { background: #052e16; color: #4ade80; }
+
+    /* ── Action buttons ── */
+    .action-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .btn {
+      font-family: var(--mono); font-size: 12px;
+      padding: 3px 10px; border-radius: 2px; cursor: pointer;
+      border: 1px solid; transition: filter .1s;
+      letter-spacing: .04em;
+    }
+    .btn:hover    { filter: brightness(1.3); }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-confirm { background: #052e16; color: var(--green);  border-color: #166534; }
+    .btn-cancel  { background: #1a1a1a; color: var(--muted);  border-color: var(--dim); }
+    .btn-action  { background: #0c1a2e; color: var(--astra);  border-color: #164e63; }
+
+    /* ── Input line ── */
+    #inputbar {
+      border-top: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 0;
+    }
+    #prompt {
+      color: var(--green); font-weight: 600; font-size: 14px;
+      padding-right: 8px; flex-shrink: 0;
+      user-select: none;
+    }
+    #userinput {
+      flex: 1; background: transparent; border: none; outline: none;
+      color: var(--user); font-family: var(--mono); font-size: 13px;
+      caret-color: var(--green);
+    }
+    #userinput::placeholder { color: var(--dim); }
+
+    /* Thinking spinner */
+    .thinking-text { color: var(--dim); font-style: italic; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .cursor { animation: blink 1s step-end infinite; }
+
+    /* Scrollbar */
+    #output::-webkit-scrollbar { width: 4px; }
+    #output::-webkit-scrollbar-track { background: transparent; }
+    #output::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  </style>
+</head>
+<body>
+
+<!-- macOS-style title bar -->
+<div id="titlebar">
+  <div class="dots">
+    <div class="dot red"></div>
+    <div class="dot yellow"></div>
+    <div class="dot green"></div>
+  </div>
+  <div class="title">astra — personal chief of staff</div>
+  <div style="width:46px"></div><!-- balance the dots -->
+</div>
+
+<div id="output"></div>
+
+<div id="inputbar">
+  <div id="prompt">❯</div>
+  <input id="userinput" type="text" placeholder="type a command or question…" autocomplete="off" spellcheck="false" />
+</div>
+
+<script>
+  // ── Configure marked ───────────────────────────────────────────────────────
+  marked.setOptions({
+    breaks: true,       // single newline → <br>
+    gfm: true,
+  });
+
+  // Strip outer <p>...</p> for single-paragraph inline messages so they
+  // don't get extra spacing when embedded in a .content div.
+  function parseMarkdown(text) {
+    const html = marked.parse(text || "");
+    // If the result is a single <p> block, unwrap it for cleaner inline rendering
+    const trimmed = html.trim();
+    if (trimmed.startsWith("<p>") && trimmed.endsWith("</p>") &&
+        trimmed.indexOf("</p>") === trimmed.length - 4) {
+      return trimmed.slice(3, -4);
+    }
+    return html;
+  }
+
+  // ── DOM helpers ────────────────────────────────────────────────────────────
+  const output   = document.getElementById("output");
+  const userinput = document.getElementById("userinput");
+
+  function now() {
+    const d = new Date();
+    return d.toTimeString().slice(0, 8);
+  }
+
+  function addLine(prefixText, prefixClass, contentEl, contentClass) {
+    const line    = document.createElement("div");
+    line.className = "line";
+
+    const pre = document.createElement("div");
+    pre.className = `prefix ${prefixClass}`;
+    pre.textContent = prefixText;
+
+    const con = document.createElement("div");
+    con.className = `content ${contentClass}`;
+    if (typeof contentEl === "string") {
+      con.textContent = contentEl;
+    } else {
+      con.appendChild(contentEl);
+    }
+
+    line.appendChild(pre);
+    line.appendChild(con);
+    output.appendChild(line);
+    return con;
+  }
+
+  function addUserLine(text) {
+    addLine(now() + "  ❯", "prefix user-prefix", text, "user-text");
+  }
+
+  function addAstraLine(markdown) {
+    const span = document.createElement("span");
+    span.className = "astra-text";
+    span.innerHTML = parseMarkdown(markdown);
+    addLine(now() + "  ✦", "prefix astra-prefix", span, "");
+  }
+
+  function addStatusLine(badge, text, prefixClass) {
+    const wrap = document.createElement("div");
+    wrap.className = "status-line";
+    const b = document.createElement("span");
+    b.className = `status-badge ${badge}`;
+    b.textContent = badge.replace("badge-","");
+    const t = document.createElement("span");
+    t.textContent = text;
+    wrap.appendChild(b);
+    wrap.appendChild(t);
+    addLine("", `prefix ${prefixClass}`, wrap, "");
+  }
+
+  function addGap() {
+    const g = document.createElement("div");
+    g.className = "gap";
+    output.appendChild(g);
+  }
+
+  function scrollBottom() { output.scrollTop = output.scrollHeight; }
+
+  // ── Thinking indicator ─────────────────────────────────────────────────────
+  let thinkingEl = null;
+
+  function showThinking() {
+    const span = document.createElement("span");
+    span.className = "thinking-text";
+    span.innerHTML = "thinking<span class='cursor'>_</span>";
+    thinkingEl = addLine(now() + "  ✦", "prefix astra-prefix", span, "");
+    scrollBottom();
+  }
+
+  function hideThinking() {
+    if (thinkingEl) {
+      thinkingEl.closest(".line").remove();
+      thinkingEl = null;
+    }
+  }
+
+  // ── Response renderer ──────────────────────────────────────────────────────
+
+  function renderResponse(resp) {
+    const type    = resp.type    || "chat";
+    const message = resp.message || "";
+    const data    = resp.data    || {};
+    const actions = resp.actions || [];
+
+    if (type === "error") {
+      addStatusLine("badge-err", message, "err-prefix");
+
+    } else if (type === "awaiting_input") {
+      addStatusLine("badge-warn", message, "warn-prefix");
+
+    } else if (type === "action_result" || type === "task_list") {
+      // Render message first
+      if (message) addAstraLine(message);
+      // If there are tasks, render a table
+      const tasks = data.tasks || [];
+      if (tasks.length) {
+        const tableWrap = buildTaskTable(tasks);
+        const con = addLine("", "prefix", tableWrap, "");
+      }
+      if (actions.length) renderActions(actions);
+
+    } else if (type === "confirmation") {
+      addAstraLine(message);
+      if (actions.length) renderActions(actions);
+
+    } else {
+      // chat, plan, reflect, etc.
+      addAstraLine(message);
+      if (actions.length) renderActions(actions);
+    }
+
+    addGap();
+    scrollBottom();
+  }
+
+  // ── Task table ─────────────────────────────────────────────────────────────
+
+  function buildTaskTable(tasks) {
+    const wrap  = document.createElement("div");
+    wrap.className = "task-table-wrap";
+
+    const table = document.createElement("table");
+    table.className = "task-table";
+    table.innerHTML = `<thead><tr>
+      <th>ID</th><th>Title</th><th>Priority</th><th>Status</th><th>Due</th>
+    </tr></thead>`;
+
+    const tbody = document.createElement("tbody");
+    tasks.forEach(t => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td style="color:var(--muted)">${t.id}</td>
+        <td>${t.title}</td>
+        <td><span class="chip ${t.priority}">${t.priority}</span></td>
+        <td><span class="chip ${t.status}">${t.status}</span></td>
+        <td style="color:var(--muted)">${t.due_date || "—"}</td>`;
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    return wrap;
+  }
+
+  // ── Action buttons ─────────────────────────────────────────────────────────
+
+  function renderActions(actions) {
+    const row = document.createElement("div");
+    row.className = "action-row";
+
+    actions.forEach(action => {
+      const btn = document.createElement("button");
+      const isConfirm = action.id === "confirm";
+      const isCancel  = action.id === "cancel";
+      btn.className   = "btn " + (isConfirm ? "btn-confirm" : isCancel ? "btn-cancel" : "btn-action");
+      btn.textContent = "[ " + action.label + " ]";
+
+      btn.onclick = async () => {
+        row.querySelectorAll("button").forEach(b => b.disabled = true);
+        addUserLine(action.label);
+
+        if (isCancel) {
+          addAstraLine("OK, no action taken.");
+          addGap();
+          scrollBottom();
+          return;
+        }
+
+        showThinking();
+        userinput.disabled = true;
+
+        try {
+          const res = await fetch("/action", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: action.type, payload: action.payload }),
+          });
+          hideThinking();
+          const data = await res.json();
+          renderResponse(data);
+        } catch (err) {
+          hideThinking();
+          addStatusLine("badge-err", "Connection error: " + err.message, "err-prefix");
+          addGap(); scrollBottom();
+        } finally {
+          userinput.disabled = false;
+          userinput.focus();
+        }
+      };
+
+      row.appendChild(btn);
+    });
+
+    // Attach action row as a new line with blank prefix
+    const con = addLine("", "prefix", row, "");
+  }
+
+  // ── Send message ───────────────────────────────────────────────────────────
+
+  async function sendMessage(text) {
+    if (!text.trim()) return;
+
+    addUserLine(text);
+    showThinking();
+    userinput.disabled = true;
+
+    try {
+      const res = await fetch("/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text }),
+      });
+      hideThinking();
+
+      if (!res.ok) {
+        addStatusLine("badge-err", "Server error: " + res.status, "err-prefix");
+        addGap(); scrollBottom();
+        return;
+      }
+
+      renderResponse(await res.json());
+    } catch (err) {
+      hideThinking();
+      addStatusLine("badge-err", "Connection error: " + err.message, "err-prefix");
+      addGap(); scrollBottom();
+    } finally {
+      userinput.disabled = false;
+      userinput.focus();
+    }
+  }
+
+  document.getElementById("inputbar").addEventListener("submit", e => e.preventDefault());
+  userinput.addEventListener("keydown", e => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      const text = userinput.value.trim();
+      if (!text) return;
+      userinput.value = "";
+      sendMessage(text);
+    }
+  });
+
+  // Boot message
+  addLine("", "prefix", "", "");
+  addAstraLine("**Astra** is online. Type a command or ask a question.");
+  addGap();
+  userinput.focus();
+</script>
+
+</body>
+</html>

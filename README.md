@@ -99,13 +99,27 @@ ANTHROPIC_API_KEY=your_key_here
 
 ### 4. Run Astra (CLI)
 
-```
+```bash
+# Interactive REPL (default)
 python main.py
+
+# One-shot commands
+python main.py plan
+python main.py reflect
+python main.py note "Remember to review the PR before EOD"
+
+# Task management
+python main.py task add "Finish ML pipeline" --priority high
+python main.py task add "Review pull requests" --priority medium --due 2026-04-16
+python main.py task list
+python main.py task list --status done
+python main.py task done <id>
+python main.py task remove <id>
 ```
 
 ---
 
-## 💬 Example Usage
+## 💬 Example Usage (REPL)
 
 ```
 > plan my day
